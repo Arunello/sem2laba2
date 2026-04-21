@@ -13,7 +13,29 @@ struct List {
     int data;
     List* prev;
     List* next;
-    List(int val) : data(val), prev(nullptr), next(nullptr) {}
+    List(int val) {
+       data = val;
+       prev = nullptr;
+       next = nullptr;
+    } 
+};
+
+struct Session {
+    string movie;
+    string time;
+    int hall;
+    int ticketsSold;
+};
+
+struct SessionNode {
+    Session data;
+    SessionNode* prev;
+    SessionNode* next;
+    SessionNode(const Session& s) {
+        data = s;
+        prev = nullptr;
+        next = nullptr;
+    }
 };
 
 void clearList(List*& head, List*& tail, int& size) {
@@ -273,6 +295,94 @@ void buildListFromData(List*& head, List*& tail, int& size, const std::vector<in
     }
 }
 
+void clearSessionList(SessionNode*& head, SessionNode*& tail) {
+    SessionNode* curr = head;
+    while (curr) {
+        SessionNode* next = curr->next;
+        delete curr;
+        curr = next;
+    }
+    head = nullptr;
+    tail = nullptr;
+}
+
+void printSessionList(SessionNode* head) {
+    SessionNode* curr = head;
+    while (curr) {
+        cout << curr->data.time << " | " << curr->data.movie 
+             << " | Зал " << curr->data.hall 
+             << " | Билетов: " << curr->data.ticketsSold << endl;
+        curr = curr->next;
+    }
+}
+
+void insertSortedSessionList(SessionNode*& head, SessionNode*& tail, const Session& newSession) {
+    SessionNode* newNode = new SessionNode(newSession);
+    if (!head) {
+        head = tail = newNode;
+        return;
+    }
+
+    SessionNode* curr = head;
+    while (curr) {
+        if (curr->data.time > newSession.time) {
+            break;
+        }
+        curr = curr->next;
+    }
+    if (!curr) {              
+        tail->next = newNode;
+        newNode->prev = tail;
+        tail = newNode;
+    } else if (curr == head) {
+        newNode->next = head;
+        head->prev = newNode;
+        head = newNode;
+    } else {
+        newNode->next = curr;
+        newNode->prev = curr->prev;
+        curr->prev->next = newNode;
+        curr->prev = newNode;
+    }
+}
+
+void clearSessionArray(Session*& arr, int& size, int& capacity) {
+    delete[] arr;
+    arr = nullptr;
+    size = 0;
+    capacity = 0;
+}
+
+void printSessionArray(Session* arr, int size) {
+    for (int i = 0; i < size; i++) {
+        cout << arr[i].time << " | " << arr[i].movie 
+             << " | Зал " << arr[i].hall 
+             << " | Билетов: " << arr[i].ticketsSold << endl;
+    }
+}
+
+void insertSortedSessionArray(Session*& arr, int& size, int& capacity, const Session& newSession) {
+    if (size == capacity) {
+        int newCap = capacity == 0 ? 4 : capacity * 2;
+        Session* newArr = new Session[newCap];
+        for (int i = 0; i < size; i++) newArr[i] = arr[i];
+        delete[] arr;
+        arr = newArr;
+        capacity = newCap;
+    }
+
+    int pos = 0;
+    while (pos < size && arr[pos].time <= newSession.time) {
+        pos++;
+    }
+
+    for (int i = size; i > pos; i--) {
+        arr[i] = arr[i - 1];
+    }
+    arr[pos] = newSession;
+    size++;
+}
+
 int main() {
     srand(time(NULL));
 
@@ -284,10 +394,18 @@ int main() {
     int arrSize = 0;
     int arrCapacity = 0;
 
+    SessionNode* sessHead = nullptr;
+    SessionNode* sessTail = nullptr;
+
+    Session* sessArr = nullptr;
+    int sessSize = 0;
+    int sessCapacity = 0;
+
     int choice = 0;
     do {
         cout << "1. Создать двусвязный список и массив + сравнить время их создания\n";
         cout << "2. Выполнить операцию над двусвязным списком и массивом + сравнить время\n";
+        cout << "3. ИДЗ\n";
         cout << "0. Выход\n";
         cout << "Выбор: ";
         cin >> choice;
@@ -318,6 +436,7 @@ int main() {
                         if (!line.empty()) cout << "Ошибка: введите число или stop\n";
                     }
                 }
+                
             } else {
                 cout << "Неверный выбор\n";
                 continue;
@@ -478,6 +597,56 @@ int main() {
                 }
 
             } while (true);
+        } else if (choice == 3) {
+            clearSessionList(sessHead, sessTail);
+            clearSessionArray(sessArr, sessSize, sessCapacity);
+
+            vector<Session> initial = {
+                {"Загадочная история Бенджамина Баттона",    "10:00", 1, 150},
+                {"Матрица",       "12:30", 2, 200},
+                {"Интерстеллар", "14:00", 1, 120},
+                {"Дюна",         "16:45", 3, 180},
+                {"Оппенгеймер",  "19:00", 2,  90}
+            };
+
+            for (auto& s : initial) insertSortedSessionList(sessHead, sessTail, s);
+            for (auto& s : initial) insertSortedSessionArray(sessArr, sessSize, sessCapacity, s);
+
+            cout << "Исходная структура:\n";
+            cout << "Список:\n";  printSessionList(sessHead);
+            cout << "Массив:\n"; printSessionArray(sessArr, sessSize);
+            cout << endl;
+
+            vector<Session> tests = {
+                {"Бойцовский клуб",       "09:00", 1, 100},
+                {"Бегущий по лезвию","13:00", 2, 130},
+                {"Дюнкерк",     "21:00", 3, 110},
+                {"Матрица",      "12:30", 2,  50}
+            };
+            string descriptions[4] = {"в начало", "в середину", "в конец", "при совпадении времени"};
+
+            for (int i = 0; i < 4; i++) {
+                cout << "\nВставка " << descriptions[i] << "\n";
+                Session ns = tests[i];
+
+                auto startL = steady_clock::now();
+                insertSortedSessionList(sessHead, sessTail, ns);
+                auto endL = steady_clock::now();
+                auto tList = duration_cast<nanoseconds>(endL - startL).count();
+
+
+                auto startA = steady_clock::now();
+                insertSortedSessionArray(sessArr, sessSize, sessCapacity, ns);
+                auto endA = steady_clock::now();
+                auto tArr = duration_cast<nanoseconds>(endA - startA).count();
+
+                cout << "Время для списка : " << tList << " наносекунд\n";
+                cout << "Время для массива: " << tArr << " наносекунд\n";
+                cout << "Результат для объектов:\n"; printSessionList(sessHead);
+            }
+
+            clearSessionList(sessHead, sessTail);
+            clearSessionArray(sessArr, sessSize, sessCapacity);
         }
     } while (choice != 0);
 
